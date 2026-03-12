@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fun Run – Johanna Gerdes Grundschule</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>emailjs.init({publicKey: "PNEFK0LggSa9lSKhF"});</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAftvkKIv7q38F1SvYN50vqRZmHnS7StRQ",
+    authDomain: "funrun-jgg-2026.firebaseapp.com",
+    projectId: "funrun-jgg-2026",
+    storageBucket: "funrun-jgg-2026.firebasestorage.app",
+    messagingSenderId: "642746995287",
+    appId: "1:642746995287:web:3a6ea5627d376a83b04912"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  async function ladenFirebase() {
+    try {
+      const docRef = doc(db, 'funrun', 'data');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.spender) D.spender = data.spender;
+        if (data.scans) D.scans = data.scans;
+        if (data.laufZu !== undefined) D.laufZu = data.laufZu;
+        if (data.kinder && data.kinder.length > 0) D.kinder = data.kinder;
+        if (data.nextNum) D.nextNum = data.nextNum;
+        updateLaufUI();
+        updateLetzteScans();
+        if (window.adminOk) refreshAdmin();
+        fuelleKinderDropdown();
+      }
+    } catch(e) { console.error('Firebase laden Fehler:', e); }
+  }
+
+  window.speichernFirebase = async function() {
+    try {
+      const docRef = doc(db, 'funrun', 'data');
+      await setDoc(docRef, {
+        spender: D.spender,
+        scans: D.scans,
+        laufZu: D.laufZu,
+        kinder: D.kinder,
+        nextNum: D.nextNum
+      });
+    } catch(e) { console.error('Firebase speichern Fehler:', e); }
+  };
+
+  const docRef = doc(db, 'funrun', 'data');
+  onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.spender) D.spender = data.spender;
+      if (data.scans) D.scans = data.scans;
+      if (data.laufZu !== undefined) D.laufZu = data.laufZu;
+      if (data.kinder && data.kinder.length > 0) D.kinder = data.kinder;
+      if (data.nextNum) D.nextNum = data.nextNum;
+      updateLaufUI();
+      updateLetzteScans();
+      if (window.adminOk) refreshAdmin();
+    }
+  });
+
+  setTimeout(ladenFirebase, 500);
+</script>
+<style>
+  :root {
+    --primary: #4CAF50;
+    --secondary: #FFD166;
+    --accent: #06D6A0;
+    --dark: #1A1A2E;
+    --bg: #FFF8F0;
+    --text: #2d2d2d;
+    --muted: #888;
+    --danger: #EF4444;
+    --shadow: 0 4px 24px rgba(255,107,53,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, var(--primary), #66BB6A);
+    color: white; padding: 18px 16px 12px; text-align: center;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 4px 20px rgba(255,107,53,0.3);
+  }
+  .header h1 { font-family: 'Fredoka One', cursive; font-size: 1.7rem; }
+  .header p { font-size: 0.82rem; opacity: 0.9; margin-top: 2px; }
+  .lauf-badge { display: inline-block; margin-top: 6px; padding: 3px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 800; }
+  .lauf-badge.offen { background: rgba(255,255,255,0.25); color: white; }
+  .lauf-badge.geschlossen { background: #EF4444; color: white; }
+
+  .nav { display: flex; background: white; border-bottom: 2px solid #f0e8df; position: sticky; top: 76px; z-index: 99; }
+  .nav-btn { flex: 1; padding: 11px 4px; border: none; background: none; font-family: 'Nunito', sans-serif; font-size: 0.72rem; font-weight: 700; color: var(--muted); cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .nav-btn .icon { font-size: 1.25rem; }
+  .nav-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+
+  .page { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow); border: 1px solid #f5ede6; }
+  .card-title { font-family: 'Fredoka One', cursive; font-size: 1.15rem; color: var(--primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+  .form-group { margin-bottom: 13px; }
+  label { display: block; font-weight: 700; font-size: 0.84rem; margin-bottom: 5px; color: var(--dark); }
+  input, select { width: 100%; padding: 11px 13px; border: 2px solid #e8ddd6; border-radius: 10px; font-family: 'Nunito', sans-serif; font-size: 0.93rem; background: #fdf9f7; transition: border 0.2s; outline: none; }
+  input:focus, select:focus { border-color: var(--primary); background: white; }
+
+  .radio-group { display: flex; gap: 10px; }
+  .radio-option { flex: 1; padding: 12px; border: 2px solid #e8ddd6; border-radius: 10px; text-align: center; cursor: pointer; font-weight: 700; font-size: 0.9rem; transition: all 0.2s; background: #fdf9f7; user-select: none; }
+  .radio-option.selected { border-color: var(--primary); background: #F1F8E9; color: var(--primary); }
+
+  .btn { width: 100%; padding: 13px; border: none; border-radius: 12px; font-family: 'Fredoka One', cursive; font-size: 1.05rem; cursor: pointer; transition: transform 0.15s; letter-spacing: 0.5px; }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: linear-gradient(135deg, var(--primary), #66BB6A); color: white; box-shadow: 0 4px 16px rgba(76,175,80,0.35); }
+  .btn-accent { background: linear-gradient(135deg, var(--accent), #04b389); color: white; box-shadow: 0 4px 16px rgba(6,214,160,0.3); }
+  .btn-secondary { background: var(--secondary); color: var(--dark); }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-outline { background: white; border: 2px solid var(--primary); color: var(--primary); }
+  .btn-grey { background: #e5e7eb; color: #374151; }
+  .btn-sm { width: auto; padding: 7px 13px; font-size: 0.82rem; font-family: 'Nunito', sans-serif; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .stat-card { border-radius: 14px; padding: 16px; text-align: center; }
+  .stat-card.orange { background: linear-gradient(135deg, var(--primary), #66BB6A); color: white; }
+  .stat-card.green { background: linear-gradient(135deg, var(--accent), #04b389); color: white; }
+  .stat-card.yellow { background: linear-gradient(135deg, #FFD166, #FFA500); color: var(--dark); }
+  .stat-card.purple { background: linear-gradient(135deg, #A855F7, #7C3AED); color: white; }
+  .stat-num { font-family: 'Fredoka One', cursive; font-size: 2rem; line-height: 1; }
+  .stat-label { font-size: 0.74rem; font-weight: 700; opacity: 0.9; margin-top: 4px; }
+
+  /* SCANNER */
+  .video-wrap { position: relative; background: #000; border-radius: 16px; overflow: hidden; margin-bottom: 12px; min-height: 240px; display: flex; align-items: center; justify-content: center; }
+  #qr-video { width: 100%; display: block; max-height: 320px; object-fit: cover; }
+  .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .scan-frame { width: 55%; aspect-ratio: 1; border: 3px solid var(--accent); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.45); position: relative; }
+  .scan-line { position: absolute; left: 5%; right: 5%; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: scanLine 2s ease-in-out infinite; }
+  @keyframes scanLine { 0%,100% { top: 10%; } 50% { top: 85%; } }
+  .cam-placeholder { color: white; text-align: center; padding: 24px; font-weight: 700; font-size: 0.88rem; }
+
+  .scan-result { border-radius: 14px; padding: 16px; text-align: center; margin-bottom: 12px; }
+  .scan-result.success { background: linear-gradient(135deg, var(--accent), #04b389); color: white; }
+  .scan-result.error { background: linear-gradient(135deg, var(--danger), #DC2626); color: white; }
+  .scan-result h3 { font-family: 'Fredoka One', cursive; font-size: 1.3rem; }
+  .scan-result p { font-size: 0.88rem; margin-top: 4px; opacity: 0.95; }
+
+  .child-item { display: flex; align-items: center; gap: 12px; padding: 11px; background: #fdf9f7; border-radius: 10px; margin-bottom: 8px; border: 1px solid #f0e8df; }
+  .child-num { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white; font-family: 'Fredoka One', cursive; font-size: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .child-info { flex: 1; }
+  .child-name { font-weight: 800; font-size: 0.92rem; }
+  .child-class { font-size: 0.75rem; color: var(--muted); }
+  .child-rounds { background: var(--accent); color: white; border-radius: 20px; padding: 3px 9px; font-weight: 800; font-size: 0.82rem; flex-shrink: 0; }
+
+  .donor-item { padding: 12px; background: #fdf9f7; border-radius: 10px; margin-bottom: 8px; border: 1px solid #f0e8df; }
+  .donor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .donor-name { font-weight: 800; font-size: 0.92rem; }
+  .donor-amount { background: var(--secondary); color: var(--dark); border-radius: 20px; padding: 3px 9px; font-weight: 800; font-size: 0.82rem; }
+  .donor-meta { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+
+  .tab-group { display: flex; background: #f5ede6; border-radius: 10px; padding: 4px; margin-bottom: 16px; }
+  .tab-btn { flex: 1; padding: 8px 4px; border: none; background: none; border-radius: 8px; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 0.78rem; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+  .tab-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+  .alert { padding: 12px 14px; border-radius: 12px; margin-bottom: 14px; font-size: 0.86rem; font-weight: 600; line-height: 1.5; }
+  .alert-warn { background: #FEF9C3; border: 2px solid #FDE68A; color: #92400E; }
+  .alert-danger { background: #FEE2E2; border: 2px solid #FCA5A5; color: #991B1B; }
+  .alert-success { background: #D1FAF0; border: 2px solid #6EE7D0; color: #065F46; }
+  .alert-info { background: #EFF6FF; border: 2px solid #BFDBFE; color: #1E40AF; }
+
+  .cert-preview { border: 3px solid var(--secondary); border-radius: 16px; padding: 20px; background: white; margin-bottom: 16px; }
+  .cert-header { text-align: center; border-bottom: 2px solid var(--secondary); padding-bottom: 12px; margin-bottom: 12px; }
+  .cert-header h3 { font-family: 'Fredoka One', cursive; color: var(--primary); font-size: 1.2rem; }
+  .cert-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #f0e8df; font-size: 0.87rem; }
+  .cert-total { font-family: 'Fredoka One', cursive; font-size: 1.25rem; color: var(--accent); margin-top: 10px; text-align: right; }
+  .cert-bank { background: #F1F8E9; border: 2px solid #A5D6A7; border-radius: 10px; padding: 12px; margin-top: 12px; font-size: 0.84rem; line-height: 1.8; }
+
+  .lock-screen { text-align: center; padding: 36px 20px; }
+  .lock-screen .lock-icon { font-size: 3rem; margin-bottom: 14px; }
+  .lock-screen h3 { font-family: 'Fredoka One', cursive; font-size: 1.3rem; color: var(--primary); margin-bottom: 8px; }
+  .lock-screen p { font-size: 0.85rem; color: var(--muted); margin-bottom: 20px; }
+
+  .divider { height: 1px; background: #f0e8df; margin: 14px 0; }
+
+  .qr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .qr-card { background: white; border-radius: 12px; padding: 14px; text-align: center; box-shadow: var(--shadow); border: 2px solid #f0e8df; }
+  .qr-card img { width: 100%; border-radius: 8px; }
+  .qr-child-name { font-weight: 800; font-size: 0.82rem; margin-top: 6px; }
+  .qr-child-num { color: var(--primary); font-family: 'Fredoka One', cursive; font-size: 1.1rem; }
+
+  .notif { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--dark); color: white; padding: 11px 20px; border-radius: 12px; font-weight: 700; transition: transform 0.3s; z-index: 9999; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-size: 0.88rem; }
+  .notif.show { transform: translateX(-50%) translateY(0); }
+
+  .empty-state { text-align: center; padding: 28px; color: var(--muted); }
+  .empty-state .emoji { font-size: 2.5rem; margin-bottom: 8px; }
+
+  @media print {
+    .nav, .header, .btn, .notif, .alert, #admin-content > *:not(.qr-grid) { display: none !important; }
+    .cert-preview, .qr-card { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏃 Fun Run 2026</h1>
+  <p>Johanna Gerdes Grundschule</p>
+  <span class="lauf-badge offen" id="header-badge">● Lauf aktiv</span>
+</div>
+
+<div class="nav">
+  <button class="nav-btn active" onclick="showPage('spender', this)"><span class="icon">💝</span>Spenden</button>
+  <button class="nav-btn" onclick="showPage('scanner', this)"><span class="icon">📱</span>Scanner</button>
+  <button class="nav-btn" onclick="showPageProtected('admin', this)"><span class="icon">🔐</span>Förderverein</button>
+  <button class="nav-btn" onclick="showPageProtected('qrcodes', this)"><span class="icon">🎯</span>QR-Codes</button>
+</div>
+
+<div id="notif" class="notif"></div>
+
+<!-- ===== SPENDER ===== -->
+<div id="page-spender" class="page active">
+  <div id="spender-closed" class="alert alert-danger" style="display:none;">🔒 Der Fun Run ist beendet. Die Anmeldung ist geschlossen. Vielen Dank an alle Spender!</div>
+
+  <div class="card" id="spender-formular">
+    <div class="card-title">💝 Als Spender eintragen</div>
+    <p style="font-size:0.84rem;color:var(--muted);margin-bottom:16px;">Sie zahlen einen Betrag <strong>pro gelaufener Runde</strong>. Nach dem Lauf erhalten Sie eine E-Mail mit dem Gesamtbetrag und Überweisungsdetails.</p>
+
+    <div class="form-group"><label>👤 Ihr vollständiger Name *</label><input type="text" id="sp-name" placeholder="Max Mustermann"></div>
+    <div class="form-group"><label>📧 E-Mail-Adresse *</label><input type="email" id="sp-email" placeholder="max@beispiel.de"></div>
+
+    <div class="divider"></div>
+
+    <div class="form-group">
+      <label>📄 Benötigen Sie eine Spendenbescheinigung? *</label>
+      <div class="radio-group">
+        <div class="radio-option" id="opt-ja" onclick="selectBescheinigung('ja')">✅ Ja, bitte</div>
+        <div class="radio-option" id="opt-nein" onclick="selectBescheinigung('nein')">❌ Nein danke</div>
+      </div>
+    </div>
+
+    <div id="adresse-box" style="display:none;">
+      <div class="alert alert-info">📮 Für die Spendenbescheinigung benötigen wir Ihre vollständige Adresse.</div>
+      <div class="form-group"><label>🏠 Straße & Hausnummer *</label><input type="text" id="sp-strasse" placeholder="Musterstraße 12"></div>
+      <div class="form-group"><label>📮 PLZ & Ort *</label><input type="text" id="sp-ort" placeholder="12345 Musterstadt"></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="form-group"><label>🏫 Zuerst Klasse auswählen *</label>
+      <select id="sp-klasse" onchange="fuelleKinderNachKlasse()">
+        <option value="">-- Bitte Klasse wählen --</option>
+      </select>
+    </div>
+    <div class="form-group" id="kind-auswahl-box" style="display:none;">
+      <label>🧒 Kind auswählen *</label>
+      <select id="sp-kind">
+        <option value="">-- Bitte Kind wählen --</option>
+      </select>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:5px;">💡 Falls ein Kind fehlt, bitte beim Förderverein melden!</p>
+    </div>
+    <div class="form-group"><label>💶 Betrag pro Runde (€) *</label><input type="number" id="sp-betrag" placeholder="z.B. 2.00" min="0.50" step="0.50"></div>
+    <div class="form-group"><label>🔝 Maximalbetrag (optional)</label><input type="number" id="sp-max" placeholder="z.B. 20 – als Höchstgrenze"></div>
+    <div class="divider"></div>
+    <button class="btn btn-primary" onclick="spenderEintragen()">✨ Jetzt als Spender eintragen</button>
+  </div>
+
+  <div id="spender-danke" class="alert alert-success" style="display:none;">🎉 Vielen Dank! Ihre Anmeldung wurde gespeichert. Nach dem Lauf erhalten Sie eine E-Mail mit dem Überweisungsbetrag.</div>
+
+  <div class="card">
+    <div class="card-title">ℹ️ So funktioniert der Fun Run</div>
+    <div style="font-size:0.87rem;line-height:1.8;">
+      <p>💝 <strong>1.</strong> Tragen Sie sich hier als Spender ein</p>
+      <p>👕 <strong>2.</strong> Jedes Kind trägt beim Lauf eine Nummer</p>
+      <p>📱 <strong>3.</strong> Jede Runde wird per QR-Code gescannt & gezählt</p>
+      <p>📧 <strong>4.</strong> Sie erhalten nach dem Lauf eine E-Mail</p>
+      <p>🏦 <strong>5.</strong> Überweisung an den Förderverein</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCANNER (offen für alle) ===== -->
+<div id="page-scanner" class="page">
+  <div id="scanner-closed" class="alert alert-danger" style="display:none;">🔒 Der Lauf ist beendet. Keine Runden mehr möglich.</div>
+
+  <div class="card">
+    <div class="card-title">📱 QR-Code Scanner</div>
+    <p style="font-size:0.84rem;color:var(--muted);margin-bottom:12px;">Halte die Kamera auf den QR-Code des Kindes – die Runde wird automatisch gezählt!</p>
+
+    <div class="video-wrap" id="video-wrap">
+      <div class="cam-placeholder" id="cam-placeholder">📷 Kamera wird gestartet…</div>
+      <video id="qr-video" autoplay playsinline muted style="display:none; width:100%; max-height:320px; object-fit:cover;"></video>
+      <div class="scan-overlay" id="scan-overlay" style="display:none;">
+        <div class="scan-frame"><div class="scan-line"></div></div>
+      </div>
+    </div>
+
+    <div id="scan-result" style="display:none;" class="scan-result success"></div>
+
+    <div class="divider"></div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;font-weight:700;">Oder Nummer manuell eingeben:</p>
+    <div style="display:flex;gap:8px;">
+      <input type="number" id="manual-num" placeholder="z.B. 42" min="1" max="200" style="flex:1;" onkeydown="if(event.key==='Enter') rundeZaehlen(this.value)">
+      <button class="btn btn-accent btn-sm" onclick="rundeZaehlen(document.getElementById('manual-num').value)">🏃 Runde!</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Letzte Scans</div>
+    <div id="letzte-scans"><div class="empty-state"><div class="emoji">🏁</div><p>Noch keine Runden gescannt</p></div></div>
+  </div>
+</div>
+
+<!-- ===== ADMIN / FÖRDERVEREIN ===== -->
+<div id="page-admin" class="page">
+  <div id="admin-login" class="card">
+    <div class="lock-screen">
+      <div class="lock-icon">🔐</div>
+      <h3>Förderverein</h3>
+      <p>Nur für Mitglieder des Fördervereins</p>
+      <div class="form-group"><input type="password" id="admin-pw" placeholder="Passwort…" onkeydown="if(event.key==='Enter') adminLogin()"></div>
+      <button class="btn btn-primary" onclick="adminLogin()">🔓 Anmelden</button>
+      
+    </div>
+  </div>
+
+  <div id="admin-content" style="display:none;">
+    <div class="stats-grid">
+      <div class="stat-card orange"><div class="stat-num" id="st-spender">0</div><div class="stat-label">Spender</div></div>
+      <div class="stat-card green"><div class="stat-num" id="st-runden">0</div><div class="stat-label">Runden</div></div>
+      <div class="stat-card yellow"><div class="stat-num" id="st-kinder">0</div><div class="stat-label">Kinder</div></div>
+      <div class="stat-card purple"><div class="stat-num" id="st-betrag">0 €</div><div class="stat-label">Gesammelt</div></div>
+    </div>
+
+    <!-- LAUF STATUS -->
+    <div class="card">
+      <div class="card-title">🏁 Lauf-Status</div>
+      <div id="lauf-offen-ui">
+        <div class="alert alert-success">✅ Lauf ist aktiv – Spender können sich eintragen, Runden werden gezählt.</div>
+        <button class="btn btn-danger" onclick="laufSchliessen()">🔒 Lauf schließen & E-Mails versenden</button>
+        <p style="font-size:0.76rem;color:var(--muted);margin-top:8px;text-align:center;">⚠️ Danach sind keine Anmeldungen oder Scans mehr möglich.</p>
+      </div>
+      <div id="lauf-zu-ui" style="display:none;">
+        <div class="alert alert-danger">🔒 Lauf ist beendet. Bescheinigungen können jetzt erstellt werden.</div>
+        <button class="btn btn-outline" onclick="laufWiederoeffnen()">🔓 Lauf wieder öffnen</button>
+        <button class="btn btn-danger" onclick="allesDatenZuruecksetzen()" style="margin-top:8px;">🗑️ Alle Daten zurücksetzen (Testmodus)</button>
+      </div>
+    </div>
+
+    <div class="tab-group">
+      <button class="tab-btn active" onclick="adminTab('spender')">💝 Spender</button>
+      <button class="tab-btn" onclick="adminTab('kinder')">🧒 Kinder</button>
+      <button class="tab-btn" onclick="adminTab('bescheinigung')">📄 Bescheinigung</button>
+    </div>
+
+    <div id="tab-spender">
+      <div style="margin-bottom:12px;"><input type="text" placeholder="🔍 Spender suchen…" oninput="filterSpender(this.value)"></div>
+      <div id="spender-liste"></div>
+    </div>
+
+    <div id="tab-kinder" style="display:none;">
+      <div class="card">
+        <div class="card-title">➕ Kind hinzufügen</div>
+        <div class="form-group"><label>Name</label><input type="text" id="add-name" placeholder="Tim Müller"></div>
+        <div class="form-group"><label>Klasse</label><input type="text" id="add-klasse" placeholder="3a"></div>
+        <button class="btn btn-primary" onclick="kindHinzufuegen()">➕ Hinzufügen</button>
+      </div>
+      <div id="kinder-liste"></div>
+    </div>
+
+    <div id="tab-bescheinigung" style="display:none;">
+      <div class="card">
+        <div class="card-title">📄 Spendenbescheinigung</div>
+        <div id="besch-locked" class="alert alert-warn">⚠️ Bescheinigungen sind erst nach Schließen des Laufs verfügbar.</div>
+        <div id="besch-form" style="display:none;">
+          <div class="form-group">
+            <label>Spender auswählen (nur Spender mit Bescheinigungsanfrage)</label>
+            <select id="cert-select" onchange="zeigeZertifikat()"><option value="">-- Spender wählen --</option></select>
+          </div>
+        </div>
+      </div>
+      <div id="cert-output"></div>
+    </div>
+
+    <div class="divider"></div>
+    <button class="btn btn-grey" onclick="adminLogout()">🚪 Abmelden</button>
+    <div style="height:16px;"></div>
+  </div>
+</div>
+
+<!-- ===== QR CODES ===== -->
+<div id="page-qrcodes" class="page">
+  <div id="qr-login" class="card">
+    <div class="lock-screen">
+      <div class="lock-icon">🎯</div>
+      <h3>QR-Codes</h3>
+      <p>Nur für den Förderverein</p>
+      <div class="form-group"><input type="password" id="qr-pw" placeholder="Passwort…" onkeydown="if(event.key==='Enter') qrLogin()"></div>
+      <button class="btn btn-primary" onclick="qrLogin()">🔓 Anmelden</button>
+    </div>
+  </div>
+
+  <div id="qr-content" style="display:none;">
+    <div class="card">
+      <div class="card-title">🎯 QR-Codes generieren</div>
+      <p style="font-size:0.84rem;color:var(--muted);margin-bottom:14px;">Erstelle QR-Codes für die Kinder. Ausdrucken und auf T-Shirts aufbringen.</p>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1;"><label>Von Nr.</label><input type="number" id="qr-von" value="1" min="1" max="200"></div>
+        <div style="flex:1;"><label>Bis Nr.</label><input type="number" id="qr-bis" value="12" min="1" max="200"></div>
+      </div>
+      <button class="btn btn-accent" onclick="generiereQR()">🎯 QR-Codes erstellen</button>
+    </div>
+    <div id="qr-output"></div>
+  </div>
+</div>
+
+<script>
+// ===== DATEN =====
+let D = { kinder: [], spender: [], scans: [], laufZu: false, nextNum: 1 };
+
+function laden() {
+  try { const s = localStorage.getItem('jr25'); if(s) D = JSON.parse(s); } catch(e){}
+  if (!D.kinder || D.kinder.length === 0) {
+    D.kinder = [{"num": 1, "klasse": "Klasse 1", "name": "Emil Klaus Auerbach", "runden": 0}, {"num": 2, "klasse": "Klasse 1", "name": "Aaron David Christel", "runden": 0}, {"num": 3, "klasse": "Klasse 1", "name": "Antonia Carli Claus", "runden": 0}, {"num": 4, "klasse": "Klasse 1", "name": "Jakob Emil Dallwitz", "runden": 0}, {"num": 5, "klasse": "Klasse 1", "name": "Alexander Nikolas Decker", "runden": 0}, {"num": 6, "klasse": "Klasse 1", "name": "Zoé Faist", "runden": 0}, {"num": 7, "klasse": "Klasse 1", "name": "Tiam Geisen", "runden": 0}, {"num": 8, "klasse": "Klasse 1", "name": "Theodor Otto Peter Hecker", "runden": 0}, {"num": 9, "klasse": "Klasse 1", "name": "Leopold Friedrich Otto Hees", "runden": 0}, {"num": 10, "klasse": "Klasse 1", "name": "Nina Heesch", "runden": 0}, {"num": 11, "klasse": "Klasse 1", "name": "Luise Hofmayer", "runden": 0}, {"num": 12, "klasse": "Klasse 1", "name": "Zoe Picek", "runden": 0}, {"num": 13, "klasse": "Klasse 1", "name": "Tom Picek", "runden": 0}, {"num": 14, "klasse": "Klasse 1", "name": "Lilo Clementine Elli Rosalie Rasche", "runden": 0}, {"num": 15, "klasse": "Klasse 1", "name": "Leonard Carl Rausch", "runden": 0}, {"num": 16, "klasse": "Klasse 1", "name": "Sophie Rogmans", "runden": 0}, {"num": 17, "klasse": "Klasse 1", "name": "Richard Levin Schnitzler", "runden": 0}, {"num": 18, "klasse": "Klasse 1", "name": "Greta Josephine Steckel", "runden": 0}, {"num": 19, "klasse": "Klasse 1", "name": "Mina Wetter", "runden": 0}, {"num": 20, "klasse": "Klasse 2a", "name": "Arik Jacob Deckert", "runden": 0}, {"num": 21, "klasse": "Klasse 2a", "name": "Charlotte Klara Dierks", "runden": 0}, {"num": 22, "klasse": "Klasse 2a", "name": "Paul Felipe Dursteler Rodríguez", "runden": 0}, {"num": 23, "klasse": "Klasse 2a", "name": "Emil Maximilian Erbe", "runden": 0}, {"num": 24, "klasse": "Klasse 2a", "name": "Caspar Emil Fidelius Faerber", "runden": 0}, {"num": 25, "klasse": "Klasse 2a", "name": "Charlotte Luise Hansmann", "runden": 0}, {"num": 26, "klasse": "Klasse 2a", "name": "Ben Leonard Helbig", "runden": 0}, {"num": 27, "klasse": "Klasse 2a", "name": "Ava Hentzschel", "runden": 0}, {"num": 28, "klasse": "Klasse 2a", "name": "Joseph Jesse", "runden": 0}, {"num": 29, "klasse": "Klasse 2a", "name": "Theodor Kilian", "runden": 0}, {"num": 30, "klasse": "Klasse 2a", "name": "Mathilde Müller", "runden": 0}, {"num": 31, "klasse": "Klasse 2a", "name": "Antonia Schuckart", "runden": 0}, {"num": 32, "klasse": "Klasse 2a", "name": "Charlotte Steuber", "runden": 0}, {"num": 33, "klasse": "Klasse 2a", "name": "Helena Marie Taruttis", "runden": 0}, {"num": 34, "klasse": "Klasse 2a", "name": "Charlotte Sophie Weste", "runden": 0}, {"num": 35, "klasse": "Klasse 2b", "name": "Frieda Matilda Avram", "runden": 0}, {"num": 36, "klasse": "Klasse 2b", "name": "Kasimir Brandhoff", "runden": 0}, {"num": 37, "klasse": "Klasse 2b", "name": "Mio Johann Carroll", "runden": 0}, {"num": 38, "klasse": "Klasse 2b", "name": "Cecilia Claudius", "runden": 0}, {"num": 39, "klasse": "Klasse 2b", "name": "Marie Eilers", "runden": 0}, {"num": 40, "klasse": "Klasse 2b", "name": "Otto Louis Fiege", "runden": 0}, {"num": 41, "klasse": "Klasse 2b", "name": "Jacob Glasmacher", "runden": 0}, {"num": 42, "klasse": "Klasse 2b", "name": "Maximilian Hahn", "runden": 0}, {"num": 43, "klasse": "Klasse 2b", "name": "Johnathan Heinrich Hausmann", "runden": 0}, {"num": 44, "klasse": "Klasse 2b", "name": "Jessica Andrea Heims", "runden": 0}, {"num": 45, "klasse": "Klasse 2b", "name": "Lucca Knijn", "runden": 0}, {"num": 46, "klasse": "Klasse 2b", "name": "Aaron Benedikt Lührig", "runden": 0}, {"num": 47, "klasse": "Klasse 2b", "name": "Hermine Annamaria Marxsen", "runden": 0}, {"num": 48, "klasse": "Klasse 2b", "name": "Philipp Naujoks", "runden": 0}, {"num": 49, "klasse": "Klasse 2b", "name": "Ava Nedrebö Cress", "runden": 0}, {"num": 50, "klasse": "Klasse 2b", "name": "Jona Nick", "runden": 0}, {"num": 51, "klasse": "Klasse 2b", "name": "Laura Marie Schenk", "runden": 0}, {"num": 52, "klasse": "Klasse 2b", "name": "Lieselotte Strack", "runden": 0}, {"num": 53, "klasse": "Klasse 2b", "name": "Ina Sophie Unterbeck", "runden": 0}, {"num": 54, "klasse": "Klasse 3", "name": "Friedrich Jakob Arnold", "runden": 0}, {"num": 55, "klasse": "Klasse 3", "name": "Emilia Arras", "runden": 0}, {"num": 56, "klasse": "Klasse 3", "name": "Lasse Aleksandar Fischoeder", "runden": 0}, {"num": 57, "klasse": "Klasse 3", "name": "Emilia Gad", "runden": 0}, {"num": 58, "klasse": "Klasse 3", "name": "Oskar Glasmacher", "runden": 0}, {"num": 59, "klasse": "Klasse 3", "name": "Magia Stella Harb", "runden": 0}, {"num": 60, "klasse": "Klasse 3", "name": "Dante Victor Haßelmann", "runden": 0}, {"num": 61, "klasse": "Klasse 3", "name": "Anno Kahmann", "runden": 0}, {"num": 62, "klasse": "Klasse 3", "name": "Sophie Karalus", "runden": 0}, {"num": 63, "klasse": "Klasse 3", "name": "Flavia Sophia Land", "runden": 0}, {"num": 64, "klasse": "Klasse 3", "name": "Anastasia Mammadli", "runden": 0}, {"num": 65, "klasse": "Klasse 3", "name": "Leonore Evamaria Marxsen", "runden": 0}, {"num": 66, "klasse": "Klasse 3", "name": "Marlon Louis Milde", "runden": 0}, {"num": 67, "klasse": "Klasse 3", "name": "Milan Schommartz", "runden": 0}, {"num": 68, "klasse": "Klasse 3", "name": "Konstantin Thum", "runden": 0}, {"num": 69, "klasse": "Klasse 3", "name": "Johan Voß", "runden": 0}, {"num": 70, "klasse": "Klasse 3", "name": "Dina Maria Johanna Westermann", "runden": 0}, {"num": 71, "klasse": "Klasse 3", "name": "Lasse Philipp Zirkler", "runden": 0}, {"num": 72, "klasse": "Klasse 4", "name": "Johanna Zoe Avram", "runden": 0}, {"num": 73, "klasse": "Klasse 4", "name": "Johanna Bob", "runden": 0}, {"num": 74, "klasse": "Klasse 4", "name": "Linus Anton Duhs", "runden": 0}, {"num": 75, "klasse": "Klasse 4", "name": "Charlotte Dyrschka", "runden": 0}, {"num": 76, "klasse": "Klasse 4", "name": "Ben Clemens Hohenwald", "runden": 0}, {"num": 77, "klasse": "Klasse 4", "name": "Mira Sophie König", "runden": 0}, {"num": 78, "klasse": "Klasse 4", "name": "Finn-Thore Land", "runden": 0}, {"num": 79, "klasse": "Klasse 4", "name": "Konstantin Schieferdecker", "runden": 0}, {"num": 80, "klasse": "Klasse 4", "name": "Marlene Stock", "runden": 0}, {"num": 81, "klasse": "Klasse 4", "name": "Zoe Friederike Thyssen", "runden": 0}, {"num": 82, "klasse": "Klasse 4", "name": "Lucius Trübenbach", "runden": 0}, {"num": 83, "klasse": "Klasse 4", "name": "Freerick Johannes Ulbricht", "runden": 0}, {"num": 84, "klasse": "Klasse 4", "name": "Clara Vanhaecke", "runden": 0}, {"num": 85, "klasse": "Klasse 4", "name": "Marlene Isabelle Voß", "runden": 0}, {"num": 86, "klasse": "Klasse 4", "name": "Karl Witusch", "runden": 0}, {"num": 87, "klasse": "Klasse 4", "name": "Johanna Emmy Zitzwitz", "runden": 0}, {"num": 88, "klasse": "Klasse 4", "name": "Martha Olivia Zur", "runden": 0}, {"num": 89, "klasse": "Klasse 5", "name": "Emily Vegas Auerbach", "runden": 0}, {"num": 90, "klasse": "Klasse 5", "name": "Leon Isaak Behar", "runden": 0}, {"num": 91, "klasse": "Klasse 5", "name": "Theodor Brandhoff", "runden": 0}, {"num": 92, "klasse": "Klasse 5", "name": "Jette Bürkner", "runden": 0}, {"num": 93, "klasse": "Klasse 5", "name": "Lilith Büttner", "runden": 0}, {"num": 94, "klasse": "Klasse 5", "name": "Emmy Luise Carroll", "runden": 0}, {"num": 95, "klasse": "Klasse 5", "name": "Henri Fritz Fiege", "runden": 0}, {"num": 96, "klasse": "Klasse 5", "name": "Jannick Theodor Hansch", "runden": 0}, {"num": 97, "klasse": "Klasse 5", "name": "Marlene Hofmayer", "runden": 0}, {"num": 98, "klasse": "Klasse 5", "name": "Eleyda-Hope Lucassen", "runden": 0}, {"num": 99, "klasse": "Klasse 5", "name": "Ava Olivia Michalak", "runden": 0}, {"num": 100, "klasse": "Klasse 5", "name": "Rouven Raudszus", "runden": 0}, {"num": 101, "klasse": "Klasse 5", "name": "Lana Maria Rohde", "runden": 0}, {"num": 102, "klasse": "Klasse 5", "name": "Tilo Wetter", "runden": 0}, {"num": 103, "klasse": "Klasse 5", "name": "Johann Zieger", "runden": 0}, {"num": 104, "klasse": "Klasse 6", "name": "Anna Arnold", "runden": 0}, {"num": 105, "klasse": "Klasse 6", "name": "Sofie Bob", "runden": 0}, {"num": 106, "klasse": "Klasse 6", "name": "Mik Fiedler", "runden": 0}, {"num": 107, "klasse": "Klasse 6", "name": "Marie Fleschner-Jetzer", "runden": 0}, {"num": 108, "klasse": "Klasse 6", "name": "Mailo Horn", "runden": 0}, {"num": 109, "klasse": "Klasse 6", "name": "Olivia Karpf", "runden": 0}, {"num": 110, "klasse": "Klasse 6", "name": "Mara Martich", "runden": 0}, {"num": 111, "klasse": "Klasse 6", "name": "Sophie Meyer zu Natrup", "runden": 0}, {"num": 112, "klasse": "Klasse 6", "name": "Hannes Paul", "runden": 0}, {"num": 113, "klasse": "Klasse 6", "name": "Jonathan Plesser", "runden": 0}, {"num": 114, "klasse": "Klasse 6", "name": "Emilia Strack", "runden": 0}, {"num": 115, "klasse": "Klasse 6", "name": "Martha Theysohn", "runden": 0}, {"num": 116, "klasse": "Klasse 6", "name": "Johanna Theysohn", "runden": 0}, {"num": 117, "klasse": "Klasse 6", "name": "Anna Voß", "runden": 0}, {"num": 118, "klasse": "Klasse 6", "name": "Raphael Voß", "runden": 0}, {"num": 119, "klasse": "Klasse 6", "name": "Alva Wietholtz", "runden": 0}, {"num": 120, "klasse": "Klasse 6", "name": "Paula Winn", "runden": 0}, {"num": 121, "klasse": "Klasse 6", "name": "Lotta Zirkler", "runden": 0}];
+    D.nextNum = 122;
+    speichern();
+  }
+  if (!D.scans) D.scans = [];
+  if (!D.spender) D.spender = [];
+  updateLaufUI();
+  updateLetzteScans();
+}
+
+function speichern() { try { localStorage.setItem('jr25', JSON.stringify(D)); } catch(e){} if(window.speichernFirebase) window.speichernFirebase(); }
+
+function notif(msg) {
+  const n = document.getElementById('notif');
+  n.textContent = msg; n.classList.add('show');
+  setTimeout(() => n.classList.remove('show'), 2800);
+}
+
+// ===== NAVIGATION =====
+let adminOk = false, qrOk = false; window.adminOk = false; window.adminOk = false;
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'scanner') startScanner();
+  else stopScanner();
+  if (name === 'admin' && adminOk) refreshAdmin();
+}
+
+function showPageProtected(name, btn) {
+  if (name === 'admin' && adminOk) { showPage(name, btn); return; }
+  if (name === 'qrcodes' && (qrOk || adminOk)) { showPage(name, btn); return; }
+  showPage(name, btn);
+}
+
+// ===== LAUF UI =====
+function updateLaufUI() {
+  const badge = document.getElementById('header-badge');
+  if (D.laufZu) {
+    badge.textContent = '● Lauf beendet'; badge.className = 'lauf-badge geschlossen';
+    setDisplay('spender-closed', true); setDisplay('scanner-closed', true);
+    setDisplay('spender-formular', false);
+    setDisplay('lauf-offen-ui', false); setDisplay('lauf-zu-ui', true);
+  } else {
+    badge.textContent = '● Lauf aktiv'; badge.className = 'lauf-badge offen';
+    setDisplay('spender-closed', false); setDisplay('scanner-closed', false);
+    setDisplay('spender-formular', true);
+    setDisplay('lauf-offen-ui', true); setDisplay('lauf-zu-ui', false);
+  }
+}
+
+function setDisplay(id, show) { const el = document.getElementById(id); if(el) el.style.display = show ? 'block' : 'none'; }
+
+// ===== SPENDER =====
+let beschWahl = null;
+function selectBescheinigung(w) {
+  beschWahl = w;
+  document.getElementById('opt-ja').classList.toggle('selected', w === 'ja');
+  document.getElementById('opt-nein').classList.toggle('selected', w === 'nein');
+  setDisplay('adresse-box', w === 'ja');
+}
+
+async function spenderEintragen() {
+  if (D.laufZu) { notif('❌ Lauf ist beendet!'); return; }
+  const name = v('sp-name'), email = v('sp-email'), kindVal = v('sp-kind'), betrag = parseFloat(v('sp-betrag'));
+  if (!name || !email || !kindVal || !betrag) { notif('❌ Pflichtfelder ausfüllen!'); return; }
+  if (!beschWahl) { notif('❌ Spendenbescheinigung auswählen!'); return; }
+  if (beschWahl === 'ja' && (!v('sp-strasse') || !v('sp-ort'))) { notif('❌ Adresse für Bescheinigung eingeben!'); return; }
+
+  const [kindNum, ...kindNameParts] = kindVal.split('|');
+  const kindName = kindNameParts.join('|');
+
+  const sp = {
+    id: Date.now(), name, email,
+    strasse: v('sp-strasse'), ort: v('sp-ort'),
+    kind: kindName,
+    kindNum: parseInt(kindNum),
+    betrag,
+    max: parseFloat(v('sp-max')) || null,
+    bescheinigung: beschWahl === 'ja',
+    datum: new Date().toLocaleDateString('de-DE')
+  };
+  D.spender.push(sp);
+  speichern();
+  setDisplay('spender-formular', false);
+  setDisplay('spender-danke', true);
+  notif('✅ Anmeldung gespeichert! Bestätigungs-E-Mail wird gesendet...');
+
+  const maxInfo = sp.max ? `- Ihr Maximalbetrag: ${sp.max.toFixed(2)} €` : '';
+  try {
+    await emailjs.send('service_b8rgqiw', 'template_epkfcu4', {
+      to_email: sp.email,
+      spender_name: sp.name,
+      kind_name: sp.kind,
+      kind_nummer: sp.kindNum,
+      betrag: sp.betrag.toFixed(2),
+      max_info: maxInfo,
+      email: sp.email
+    });
+    notif('📧 Bestätigungs-E-Mail wurde gesendet!');
+  } catch(e) {
+    console.error('E-Mail Fehler:', e);
+    notif('⚠️ Anmeldung gespeichert, E-Mail konnte nicht gesendet werden.');
+  }
+}
+
+function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+
+// ===== KAMERA SCANNER =====
+let stream = null, scanTimer = null, lastVal = '', lastTime = 0;
+
+async function startScanner() {
+  if (D.laufZu) return;
+  const video = document.getElementById('qr-video');
+  const placeholder = document.getElementById('cam-placeholder');
+  const overlay = document.getElementById('scan-overlay');
+
+  // jsQR laden falls noch nicht geladen
+  if (!window.jsQR) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  // Canvas für jsQR
+  let canvas = document.getElementById('qr-canvas');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.id = 'qr-canvas';
+    canvas.style.display = 'none';
+    document.body.appendChild(canvas);
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    video.srcObject = stream;
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    overlay.style.display = 'flex';
+
+    const ctx = canvas.getContext('2d');
+    scanTimer = setInterval(() => {
+      if (video.readyState < 2) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      if (canvas.width === 0) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code) {
+        const val = code.data;
+        const now = Date.now();
+        if (val !== lastVal || now - lastTime > 3500) {
+          lastVal = val; lastTime = now;
+          verarbeiteQR(val);
+        }
+      }
+    }, 500);
+
+  } catch(e) {
+    video.style.display = 'none';
+    overlay.style.display = 'none';
+    placeholder.style.display = 'block';
+    placeholder.textContent = '❌ Kein Kamerazugriff. Bitte Nummer manuell eingeben.';
+    placeholder.style.color = '#fca5a5';
+  }
+}
+
+function stopScanner() {
+  if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const video = document.getElementById('qr-video');
+  const placeholder = document.getElementById('cam-placeholder');
+  const overlay = document.getElementById('scan-overlay');
+  if (video) { video.style.display = 'none'; video.srcObject = null; }
+  if (placeholder) { placeholder.style.display = 'block'; placeholder.textContent = '📷 Kamera wird gestartet…'; placeholder.style.color = 'white'; }
+  if (overlay) overlay.style.display = 'none';
+}
+
+function verarbeiteQR(val) {
+  const m = val.match(/FUNRUN-KIND-(\d+)/);
+  if (m) rundeZaehlen(m[1]);
+  else zeigeScanResult('error', '❌ Ungültiger QR-Code', val);
+}
+
+function rundeZaehlen(numStr) {
+  if (D.laufZu) { notif('❌ Lauf ist beendet!'); return; }
+  const num = parseInt(numStr);
+  if (!num || num < 1) { zeigeScanResult('error', '❌ Ungültige Nummer', 'Bitte 1–200 eingeben'); return; }
+  const kind = D.kinder.find(k => k.num === num);
+  if (!kind) { zeigeScanResult('error', `❌ Kind Nr. ${num} nicht gefunden`, 'Bitte prüfen ob das Kind eingetragen ist'); return; }
+  kind.runden += 2;
+  D.scans.unshift({ num, name: kind.name, zeit: new Date().toLocaleTimeString('de-DE'), datum: new Date().toLocaleDateString('de-DE') });
+  if (D.scans.length > 500) D.scans = D.scans.slice(0, 500);
+  speichern();
+  const spCount = D.spender.filter(s => matchKind(s, kind)).length;
+  zeigeScanResult('success', `🏃 ${kind.name}`, `+2 Runden gezählt! Gesamt: ${kind.runden} Runden · ${spCount} Spender`);
+  updateLetzteScans();
+  document.getElementById('manual-num').value = '';
+}
+
+function matchKind(sp, kind) {
+  const q = sp.kind.toLowerCase().trim();
+  return kind.name.toLowerCase() === q || kind.name.toLowerCase().includes(q) || String(kind.num) === q;
+}
+
+function zeigeScanResult(type, title, text) {
+  const box = document.getElementById('scan-result');
+  box.className = 'scan-result ' + type;
+  box.innerHTML = `<h3>${title}</h3><p>${text}</p>`;
+  box.style.display = 'block';
+  setTimeout(() => { box.style.display = 'none'; }, 4000);
+}
+
+function updateLetzteScans() {
+  const c = document.getElementById('letzte-scans');
+  if (!c) return;
+  if (!D.scans || D.scans.length === 0) { c.innerHTML = `<div class="empty-state"><div class="emoji">🏁</div><p>Noch keine Runden gescannt</p></div>`; return; }
+  c.innerHTML = D.scans.slice(0, 15).map(s => `
+    <div class="child-item">
+      <div class="child-num">${s.num}</div>
+      <div class="child-info"><div class="child-name">${s.name}</div><div class="child-class">${s.datum} – ${s.zeit}</div></div>
+      <div class="child-rounds">✅</div>
+    </div>`).join('');
+}
+
+// ===== ADMIN =====
+function adminLogin() {
+  if (document.getElementById('admin-pw').value === 'funrun2026') {
+    adminOk = true; qrOk = true; window.adminOk = true;
+    setDisplay('admin-login', false);
+    setDisplay('admin-content', true);
+    refreshAdmin(); notif('✅ Willkommen!');
+  } else { notif('❌ Falsches Passwort!'); }
+}
+
+function adminLogout() {
+  adminOk = false; window.adminOk = false;
+  setDisplay('admin-login', true);
+  setDisplay('admin-content', false);
+}
+
+function adminTab(tab) {
+  ['spender','kinder','bescheinigung'].forEach(t => {
+    setDisplay('tab-' + t, t === tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['spender','kinder','bescheinigung'][i] === tab);
+  });
+  if (tab === 'bescheinigung') ladeBeschSelect();
+}
+
+function refreshAdmin() {
+  updateLaufUI();
+  const totalRunden = D.kinder.reduce((s,k) => s + k.runden, 0);
+  let totalBetrag = 0;
+  D.spender.forEach(sp => {
+    const kind = D.kinder.find(k => matchKind(sp, k));
+    if (kind) { let b = kind.runden * sp.betrag; if(sp.max) b = Math.min(b, sp.max); totalBetrag += b; }
+  });
+  document.getElementById('st-spender').textContent = D.spender.length;
+  document.getElementById('st-runden').textContent = totalRunden;
+  document.getElementById('st-kinder').textContent = D.kinder.length;
+  document.getElementById('st-betrag').textContent = totalBetrag.toFixed(0) + ' €';
+  renderSpender(D.spender);
+  renderKinder();
+}
+
+function renderSpender(liste) {
+  const c = document.getElementById('spender-liste');
+  if (!liste || liste.length === 0) { c.innerHTML = `<div class="empty-state"><div class="emoji">💝</div><p>Noch keine Spender</p></div>`; return; }
+  c.innerHTML = liste.map(sp => {
+    const kind = D.kinder.find(k => matchKind(sp, k));
+    const runden = kind ? kind.runden : 0;
+    let b = runden * sp.betrag; if(sp.max) b = Math.min(b, sp.max);
+    const idx = D.spender.indexOf(sp);
+    const bezahltUI = sp.bezahlt
+      ? `<span style="background:#D1FAF0;color:#065F46;border-radius:20px;padding:3px 9px;font-size:0.78rem;font-weight:800;">✅ Bezahlt · ${sp.bezahltDatum || ''}</span>`
+      : `<button class="btn btn-accent btn-sm" style="margin-top:8px;" onclick="zahlungBestaetigen(${idx})">💳 Zahlung bestätigen</button>`;
+    return `<div class="donor-item">
+      <div class="donor-header"><span class="donor-name">👤 ${sp.name}</span><span class="donor-amount">${b.toFixed(2)} €</span></div>
+      <div class="donor-meta">📧 ${sp.email}<br>🧒 ${sp.kind} · ${sp.betrag}€/Runde${sp.max ? ' (max. '+sp.max+'€)' : ''} · ${runden} Runden · ${sp.bescheinigung ? '📄 Bescheinigung gewünscht' : '📋 Keine Bescheinigung'}</div>
+      <div>${bezahltUI}</div>
+    </div>`;
+  }).join('');
+}
+
+async function zahlungBestaetigen(idx) {
+  const sp = D.spender[idx];
+  if (!sp) return;
+  const msg = sp.bescheinigung
+    ? `Zahlung von ${sp.name} bestätigen?\n\n📄 Die Zuwendungsbestätigung wird zum Ausdrucken geöffnet.`
+    : `Zahlung von ${sp.name} als eingegangen bestätigen?`;
+  if (!confirm(msg)) return;
+
+  sp.bezahlt = true;
+  sp.bezahltDatum = new Date().toLocaleDateString('de-DE');
+  speichern();
+  renderSpender(D.spender);
+  notif(`✅ Zahlung von ${sp.name} bestätigt!`);
+
+  if (sp.bescheinigung) {
+    const kind = D.kinder.find(k => matchKind(sp, k));
+    const runden = kind ? kind.runden : 0;
+    let betrag = runden * sp.betrag; if(sp.max) betrag = Math.min(betrag, sp.max);
+    druckeZuwendungsbestaetigung(sp, runden, betrag);
+  }
+}
+
+function betragInWorte(betrag) {
+  const einheiten = ['null','ein','zwei','drei','vier','fünf','sechs','sieben','acht','neun','zehn','elf','zwölf','dreizehn','vierzehn','fünfzehn','sechzehn','siebzehn','achtzehn','neunzehn'];
+  const zehner = ['','','zwanzig','dreißig','vierzig','fünfzig','sechzig','siebzig','achtzig','neunzig'];
+  const n = Math.round(betrag);
+  if (n < 20) return einheiten[n];
+  if (n < 100) return (n % 10 === 0) ? zehner[Math.floor(n/10)] : einheiten[n%10]+'und'+zehner[Math.floor(n/10)];
+  if (n < 1000) return einheiten[Math.floor(n/100)]+'hundert'+(n%100 > 0 ? betragInWorte(n%100) : '');
+  return n + '';
+}
+
+function druckeZuwendungsbestaetigung(sp, runden, betrag) {
+  const betragGanz = Math.floor(betrag);
+  const betragCents = Math.round((betrag - betragGanz) * 100);
+  const betragWort = betragInWorte(betragGanz) + (betragCents > 0 ? ' Euro und ' + betragInWorte(betragCents) + ' Cent' : ' Euro');
+  const betragWortGross = betragWort.charAt(0).toUpperCase() + betragWort.slice(1);
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 20mm 15mm; color: #000; }
+  .rahmen { border: 1px solid #000; padding: 6px 8px; margin-bottom: 6px; }
+  .titel { font-weight: bold; font-size: 12px; margin-bottom: 4px; }
+  .fliesstext { font-size: 10px; line-height: 1.5; margin-bottom: 6px; }
+  .zeile { display: flex; gap: 10px; margin-bottom: 6px; }
+  .feld { border: 1px solid #000; padding: 4px 8px; flex: 1; }
+  .feld-label { font-size: 9px; color: #333; margin-bottom: 2px; }
+  .feld-wert { font-size: 11px; }
+  .checkbox-zeile { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 4px; font-size: 10px; }
+  .cb { width: 12px; height: 12px; border: 1px solid #000; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 10px; }
+  .checked { font-weight: bold; }
+  .unterschrift { margin-top: 20px; border-top: 1px solid #000; padding-top: 4px; font-size: 10px; }
+  .hinweis { font-size: 9px; color: #333; margin-top: 10px; line-height: 1.4; }
+  .footer { font-size: 9px; margin-top: 8px; border-top: 1px solid #000; padding-top: 4px; }
+  @media print { body { margin: 10mm 15mm; } button { display: none; } }
+</style>
+</head>
+<body>
+
+<button onclick="window.print()" style="margin-bottom:16px; padding:10px 20px; background:#4CAF50; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; font-weight:bold;">🖨️ Jetzt drucken</button>
+
+<div class="rahmen">
+  <div style="font-size:10px; margin-bottom:2px;">Aussteller (Bezeichnung und Anschrift der steuerbegünstigten Einrichtung)</div>
+  <strong>Verein der Förderer der Johanna Gerdes Grundschule e.V.</strong><br>
+  Salzachstr. 4<br>
+  14163 Berlin
+</div>
+
+<div class="titel">Bestätigung über Geldzuwendungen/Mitgliedsbeitrag</div>
+<div class="fliesstext">
+  im Sinne des § 10b des Einkommensteuergesetzes an eine der in § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes bezeichneten Körperschaften, Personenvereinigungen oder Vermögensmassen
+</div>
+
+<div class="rahmen">
+  <div style="font-size:10px;">Name und Anschrift des Zuwendenden</div>
+  <div style="font-size:13px; margin-top:4px;">${sp.name}${sp.strasse ? ', ' + sp.strasse : ''}${sp.ort ? ', ' + sp.ort : ''}</div>
+  <div style="font-size:10px; color:#2d7a3a; margin-top:3px;">📧 ${sp.email}</div>
+</div>
+
+<div class="zeile">
+  <div class="feld" style="flex:0.8;">
+    <div class="feld-label">Betrag der Zuwendung – in Ziffern –</div>
+    <div class="feld-wert" style="font-size:14px;"><strong>${betrag.toFixed(2).replace('.',',')} €</strong></div>
+  </div>
+  <div class="feld" style="flex:1.5;">
+    <div class="feld-label">– in Buchstaben –</div>
+    <div class="feld-wert">${betragWortGross}</div>
+  </div>
+  <div class="feld" style="flex:0.7;">
+    <div class="feld-label">Tag der Zuwendung:</div>
+    <div class="feld-wert">${sp.bezahltDatum}</div>
+  </div>
+</div>
+
+<div class="checkbox-zeile">
+  <span style="margin-right:20px;">Es handelt sich um den Verzicht auf Erstattung von Aufwendungen</span>
+  <span>Ja <span class="cb">✗</span></span>
+  <span style="margin-left:10px;">Nein <span class="cb"></span></span>
+</div>
+
+<div class="checkbox-zeile">
+  <span class="cb checked">✗</span>
+  <span>Wir sind wegen Förderung (Angabe des begünstigten Zwecks / der begünstigten Zwecke)<br>
+  <strong>der Erziehung</strong><br><br>
+  nach dem Freistellungsbescheid bzw. nach der Anlage zum Körperschaftsteuerbescheid des Finanzamtes<br>
+  für Körperschaften &nbsp;&nbsp; StNr. 27/680/54709 &nbsp;&nbsp; vom &nbsp;&nbsp; 07.06.2021 &nbsp;&nbsp; für den letzten<br>
+  Veranlagungszeitraum &nbsp;&nbsp; 2018–2020 &nbsp;&nbsp; nach § 5 Abs. 1 Nr. 9 des Körperschaftsteuergesetzes von der Körperschaftsteuer und nach § 3 Nr. 6 des Gewerbesteuergesetzes von der Gewerbesteuer befreit.</span>
+</div>
+
+<div style="margin-top:10px;" class="rahmen">
+  <div class="fliesstext">Es wird bestätigt, dass die Zuwendung nur zur Förderung (Angabe des begünstigten Zwecks / der begünstigten Zwecke)</div>
+  <strong>der Erziehung</strong>
+  <div class="fliesstext" style="margin-top:6px;">verwendet wird.</div>
+</div>
+
+<div class="unterschrift">
+  Berlin, den ${sp.bezahltDatum} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <span style="font-style:italic;">Verein der Förderer der Johanna Gerdes Grundschule e.V.</span>
+  <div style="font-size:9px; margin-top:4px;">(Ort, Datum und Unterschrift des Zuwendungsempfängers)</div>
+  <div style="font-size:9px; margin-top:6px;"><em>Diese Bestätigung wurde maschinell erstellt und ist ohne Unterschrift gültig.</em></div>
+</div>
+
+<div class="hinweis">
+  <strong>Hinweis:</strong> Wer vorsätzlich oder grob fahrlässig eine unrichtige Zuwendungsbestätigung erstellt oder veranlasst, dass Zuwendungen nicht zu den in der Zuwendungsbestätigung angegebenen steuerbegünstigten Zwecken verwendet werden, haftet für die entgangene Steuer (§ 10b Abs. 4 EStG, § 9 Abs. 3 KStG, § 9 Nr. 5 GewStG).<br><br>
+  Diese Bestätigung wird nicht als Nachweis für die steuerliche Berücksichtigung der Zuwendung anerkannt, wenn das Datum des Freistellungsbescheides länger als 5 Jahre bzw. das Datum der Feststellung der Einhaltung der satzungsmäßigen Voraussetzungen nach § 60a AO länger als 3 Jahre seit Ausstellung des Bescheides zurückliegt (§ 63 Abs. 5 AO).
+</div>
+
+<div class="footer">034122 Bestätigung über Geldzuwendung / steuerbegünstigte Einrichtung / Verein (2013)</div>
+
+</body></html>`;
+
+  // Blob-basierter Ansatz für bessere Browser-Kompatibilität
+  const blob = new Blob([html], {type: 'text/html'});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    // Fallback: direkt im aktuellen Tab öffnen
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.click();
+  } else {
+    setTimeout(() => { win.print(); }, 1000);
+  }
+}
+
+function filterSpender(q) {
+  renderSpender(D.spender.filter(s =>
+    s.name.toLowerCase().includes(q.toLowerCase()) ||
+    s.kind.toLowerCase().includes(q.toLowerCase()) ||
+    s.email.toLowerCase().includes(q.toLowerCase())
+  ));
+}
+
+function renderKinder() {
+  const c = document.getElementById('kinder-liste');
+  if (!D.kinder || D.kinder.length === 0) { c.innerHTML = `<div class="empty-state"><div class="emoji">🧒</div><p>Noch keine Kinder</p></div>`; return; }
+  c.innerHTML = D.kinder.map(k => `
+    <div class="child-item">
+      <div class="child-num">${k.num}</div>
+      <div class="child-info"><div class="child-name">${k.name}</div><div class="child-class">Klasse ${k.klasse}</div></div>
+      <div class="child-rounds">${k.runden} 🏃</div>
+    </div>`).join('');
+}
+
+function kindHinzufuegen() {
+  const name = v('add-name'), klasse = v('add-klasse');
+  if (!name) { notif('❌ Name eingeben!'); return; }
+  D.kinder.push({ num: D.nextNum++, name, klasse: klasse || '?', runden: 0 });
+  speichern();
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-klasse').value = '';
+  renderKinder();
+  refreshAdmin();
+  fuelleKinderDropdown();
+  notif(`✅ ${name} (Nr. ${D.nextNum-1}) hinzugefügt!`);
+}
+
+// ===== LAUF SCHLIESSEN =====
+async function laufSchliessen() {
+  if (!confirm('Lauf wirklich schließen?\n\nDanach:\n• Keine neuen Spender-Anmeldungen\n• Kein Scannen mehr möglich\n• Alle Spender erhalten ihre Abschluss-E-Mail\n\nDies kann rückgängig gemacht werden.')) return;
+  D.laufZu = true; speichern(); updateLaufUI();
+  notif('✅ Lauf geschlossen! E-Mails werden versendet...');
+
+  let count = 0, fehler = 0;
+  for (const sp of D.spender) {
+    const kind = D.kinder.find(k => matchKind(sp, k));
+    if (kind) {
+      let betrag = kind.runden * sp.betrag;
+      if (sp.max) betrag = Math.min(betrag, sp.max);
+      const maxInfo = sp.max ? `- Ihr Maximalbetrag: ${sp.max.toFixed(2)} €` : '';
+      try {
+        await emailjs.send('service_b8rgqiw', 'template_u1ip5nd', {
+          to_email: sp.email,
+          spender_name: sp.name,
+          kind_name: sp.kind,
+          kind_nummer: sp.kindNum || '–',
+          betrag: sp.betrag.toFixed(2),
+          max_info: maxInfo,
+          email: sp.email,
+          runden: kind.runden,
+          gesamtbetrag: betrag.toFixed(2)
+        });
+        count++;
+      } catch(e) {
+        fehler++;
+        console.error('E-Mail Fehler für ' + sp.email, e);
+      }
+    }
+  }
+
+  setTimeout(() => alert(`🎉 Lauf erfolgreich geschlossen!\n\n📧 ${count} E-Mails gesendet${fehler > 0 ? `\n⚠️ ${fehler} E-Mails fehlgeschlagen` : ''}\n\nAlle Spender wurden über den Gesamtbetrag informiert.`), 400);
+}
+
+function laufWiederoeffnen() {
+  if (!confirm('Lauf wieder öffnen?')) return;
+  D.laufZu = false; speichern(); updateLaufUI(); refreshAdmin(); notif('✅ Lauf wieder geöffnet!');
+}
+
+function allesDatenZuruecksetzen() {
+  if (!confirm('⚠️ ACHTUNG!\n\nAlle Daten werden gelöscht:\n• Alle Spender\n• Alle Runden\n• Alle Scans\n• Lauf wird wieder geöffnet\n\nDie Kinderliste bleibt erhalten!\n\nWirklich zurücksetzen?')) return;
+  if (!confirm('Bist du sicher? Diese Aktion kann NICHT rückgängig gemacht werden!')) return;
+
+  D.spender = [];
+  D.scans = [];
+  D.laufZu = false;
+  D.kinder.forEach(k => k.runden = 0);
+  speichern();
+  updateLaufUI();
+  refreshAdmin();
+  fuelleKinderDropdown();
+  notif('✅ Alle Daten zurückgesetzt! App ist bereit für den echten Lauf!');
+}
+
+// ===== BESCHEINIGUNG =====
+function ladeBeschSelect() {
+  const istZu = D.laufZu;
+  setDisplay('besch-locked', !istZu);
+  setDisplay('besch-form', istZu);
+  if (!istZu) return;
+  const sel = document.getElementById('cert-select');
+  const beschSpender = D.spender.filter(s => s.bescheinigung);
+  sel.innerHTML = '<option value="">-- Spender wählen --</option>';
+  beschSpender.forEach((sp, i) => { sel.innerHTML += `<option value="${i}">${sp.name} – ${sp.kind}</option>`; });
+  if (beschSpender.length === 0) sel.innerHTML = '<option>Kein Spender hat eine Bescheinigung angefragt</option>';
+}
+
+function zeigeZertifikat() {
+  const idx = document.getElementById('cert-select').value;
+  const out = document.getElementById('cert-output');
+  if (idx === '') { out.innerHTML = ''; return; }
+  const sp = D.spender.filter(s => s.bescheinigung)[parseInt(idx)];
+  if (!sp) return;
+  const kind = D.kinder.find(k => matchKind(sp, k));
+  const runden = kind ? kind.runden : 0;
+  let betrag = runden * sp.betrag; if(sp.max) betrag = Math.min(betrag, sp.max);
+
+  out.innerHTML = `
+    <div class="cert-preview">
+      <div class="cert-header">
+        <div style="font-size:1.8rem">🏃</div>
+        <h3>Spendenbescheinigung</h3>
+        <p style="font-size:0.8rem;color:var(--muted);">Johanna Gerdes Grundschule – Fun Run 2026<br>Förderverein Johanna Gerdes Grundschule e.V.</p>
+      </div>
+      <div class="cert-row"><span>Spender/in:</span><strong>${sp.name}</strong></div>
+      <div class="cert-row"><span>Adresse:</span><span>${sp.strasse || '–'}, ${sp.ort || '–'}</span></div>
+      <div class="cert-row"><span>E-Mail:</span><span>${sp.email}</span></div>
+      <div class="cert-row"><span>Unterstütztes Kind:</span><strong>${sp.kind}</strong></div>
+      <div class="cert-row"><span>Gelaufene Runden:</span><strong>${runden} Runden</strong></div>
+      <div class="cert-row"><span>Betrag pro Runde:</span><span>${sp.betrag.toFixed(2)} €</span></div>
+      ${sp.max ? `<div class="cert-row"><span>Maximalbetrag:</span><span>${sp.max.toFixed(2)} €</span></div>` : ''}
+      <div class="cert-row"><span>Ausstellungsdatum:</span><span>${new Date().toLocaleDateString('de-DE')}</span></div>
+      <div class="cert-total">Gesamtbetrag: ${betrag.toFixed(2)} €</div>
+      <div class="cert-bank">
+        ✅ <strong>Zahlung eingegangen – vielen Dank!</strong><br>
+        Diese Spendenbescheinigung wurde nach Zahlungseingang ausgestellt.
+      </div>
+      <p style="font-size:0.76rem;color:var(--muted);margin-top:14px;text-align:center;">Herzlichen Dank für Ihre großzügige Unterstützung! 🙏</p>
+    </div>
+    <button class="btn btn-primary" onclick="druckeAusVorschau()">🖨️ Drucken / Als PDF speichern</button>
+    <div style="height:12px;"></div>`;
+}
+
+// ===== QR CODES =====
+function qrLogin() {
+  if (document.getElementById('qr-pw').value === 'funrun2026') {
+    qrOk = true;
+    setDisplay('qr-login', false);
+    setDisplay('qr-content', true);
+    notif('✅ Willkommen!');
+  } else { notif('❌ Falsches Passwort!'); }
+}
+
+function generiereQR() {
+  const von = parseInt(document.getElementById('qr-von').value) || 1;
+  const bis = parseInt(document.getElementById('qr-bis').value) || 12;
+  if (bis < von) { notif('❌ "Bis" muss ≥ "Von" sein!'); return; }
+  if (bis - von >= 50) { notif('❌ Max. 50 QR-Codes auf einmal!'); return; }
+
+  const out = document.getElementById('qr-output');
+  out.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'qr-grid';
+  out.appendChild(grid);
+
+  for (let i = von; i <= bis; i++) {
+    const kind = D.kinder.find(k => k.num === i);
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    card.innerHTML = `
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FUNRUN-KIND-${i}" 
+           alt="QR ${i}" loading="lazy" onerror="this.parentElement.querySelector('.qr-fallback').style.display='block'; this.style.display='none'">
+      <div class="qr-fallback" style="display:none; padding:16px; background:#f5f5f5; border-radius:8px; font-size:0.8rem; color:#666;">QR-Code ${i}<br>(Internetverbindung nötig)</div>
+      <div class="qr-child-num">Nr. ${i}</div>
+      <div class="qr-child-name">${kind ? kind.name : 'Kind ' + i}</div>`;
+    grid.appendChild(card);
+  }
+
+  const printBtn = document.createElement('button');
+  printBtn.className = 'btn btn-primary';
+  printBtn.style.marginTop = '16px';
+  printBtn.innerHTML = '🖨️ QR-Codes drucken';
+  printBtn.onclick = () => window.print();
+  out.appendChild(printBtn);
+  notif(`✅ ${bis - von + 1} QR-Codes werden geladen!`);
+}
+
+// ===== KLASSEN & KINDER DROPDOWN =====
+function fuelleKinderDropdown() {
+  const selKlasse = document.getElementById('sp-klasse');
+  if (!selKlasse) return;
+  const klassen = [...new Set(D.kinder.map(k => k.klasse))].sort((a,b) => a.localeCompare(b, 'de'));
+  selKlasse.innerHTML = '<option value="">-- Bitte Klasse wählen --</option>';
+  klassen.forEach(kl => {
+    selKlasse.innerHTML += `<option value="${kl}">${kl}</option>`;
+  });
+  setDisplay('kind-auswahl-box', false);
+  const selKind = document.getElementById('sp-kind');
+  if (selKind) selKind.innerHTML = '<option value="">-- Bitte Kind wählen --</option>';
+}
+
+function fuelleKinderNachKlasse() {
+  const klasse = document.getElementById('sp-klasse').value;
+  const selKind = document.getElementById('sp-kind');
+  const box = document.getElementById('kind-auswahl-box');
+
+  if (!klasse) { setDisplay('kind-auswahl-box', false); return; }
+
+  const kinder = D.kinder.filter(k => k.klasse === klasse).sort((a,b) => a.name.localeCompare(b.name, 'de'));
+  selKind.innerHTML = '<option value="">-- Bitte Kind wählen --</option>';
+  kinder.forEach(k => {
+    selKind.innerHTML += `<option value="${k.num}|${k.name}">Nr. ${k.num} – ${k.name}</option>`;
+  });
+
+  setDisplay('kind-auswahl-box', true);
+}
+
+function druckeAusVorschau() {
+  const out = document.getElementById('cert-output');
+  if (!out) return;
+  // Hole die aktuellen Spenderdaten für die offizielle Zuwendungsbestätigung
+  const idx = document.getElementById('cert-select').value;
+  if (idx === '') return;
+  const sp = D.spender.filter(s => s.bescheinigung)[parseInt(idx)];
+  if (!sp) return;
+  const kind = D.kinder.find(k => matchKind(sp, k));
+  const runden = kind ? kind.runden : 0;
+  let betrag = runden * sp.betrag; if(sp.max) betrag = Math.min(betrag, sp.max);
+  druckeZuwendungsbestaetigung(sp, runden, betrag);
+}
+
+// ===== LADEN =====
+laden();
+fuelleKinderDropdown();
+updateLetzteScans();
+</script>
+</body>
+</html>
